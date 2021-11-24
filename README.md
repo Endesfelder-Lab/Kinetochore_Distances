@@ -1,2 +1,2 @@
 # Kinetochore_Distances
-code to approximate the posterior distribution of CENP-A-POI distances according to our kinetochore model using STAN
+This code belongs to the work "Unraveling the kinetochore nanostructure in Schizosaccharomyces pombe using multi-color single-molecule localization microscopy", Virant et al., DOI (manuscript submitted). The code is used to approximate the posterior distribution of CENP-A-POI distances according to our kinetochore model using the Hamiltonian Monte Carlo algorithm as implemented by Stan (Stan Development Team, 2021) and the CmdStanPy python package (Stan Development Team, 2019).
