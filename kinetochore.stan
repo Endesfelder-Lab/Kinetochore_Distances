@@ -1,7 +1,9 @@
-
-// A = cnp1, B = POI, C1 = spindle pole 1, C2 = spindle pole 2
 data {
+
+    // number of data points
     int<lower=0> N;
+    
+    // measured distances, A = cnp1, B = POI, C1 = spindle pole 1, C2 = spindle pole 2
     vector<lower=0>[N] AB;
     vector<lower=0>[N] BC1;
     vector<lower=0>[N] BC2;
@@ -9,25 +11,38 @@ data {
     vector<lower=0>[N] AC2;
     vector<lower=0>[N] C1C2;
 
+    // estimated variance of Gaussian measurement error of the spindle poles
     vector<lower=0>[N] var_C1;
     vector<lower=0>[N] var_C2;
 
+    // number of movies
     int<lower=0> N_movies;
+    
+    // source movie for all data points
     int<lower=1,upper=N_movies> movie_id[N];
 
-    vector<lower=0>[N_movies] tau_square_alignment_C;
+    // tau square an nu parameters for inverse chi square prior for the alignment error, per movie
+    // alignment between channels A (cnp1) and B (POI)
     vector<lower=0>[N_movies] tau_square_alignment_B;
-    vector<lower=1>[N_movies] nu_alignment_C;
     vector<lower=1>[N_movies] nu_alignment_B;
+    // alignment between channels A (cnp1) and C (spindle poles)
+    vector<lower=0>[N_movies] tau_square_alignment_C;
+    vector<lower=1>[N_movies] nu_alignment_C;
 
+    // tau square an nu parameters for inverse chi square prior for the cluster error
     real<lower=0> tau_square_cluster;
     int<lower=1> nu_cluster;
 }
 
-transformed data {
-    real sigma_prior_AB =  mean(AB) * 10;
 
+transformed data {
+
+    // sigma for weakly informative Gaussian prior for AB
+    real sigma_prior_AB =  mean(AB) * 10;
+    
+    // mixture coefficient, i.e. prior probability that cnp1 and POI are attached to spindle pole 1
     vector[N] lambda = 1 ./ (1 + (AC2 ./ AC1).^-3);
+
 
     vector[N] var_C[2] = {var_C1, var_C2};
 
@@ -69,7 +84,11 @@ transformed data {
     A[1]    -= A[1]; 
 }
 
+
 parameters {
+
+    // "raw", centered parameters, need to be translated and scaled to yield actual values (see below und "transformed paramters")
+
     real AB_true_raw;
 
     vector[N] A_true_raw[2, 2];
@@ -79,11 +98,17 @@ parameters {
     vector<lower=0>[N] var_B_raw;
     vector<lower=0>[N_movies] var_alignment_B_raw;
     vector<lower=0>[N_movies] var_alignment_C_raw;
-
+    
+    
+    // sigma for hierarchical, uninformative Gaussian prior for positions of A, C1 and C2
     real<lower=0> sigma_prior;
 }
 
+
 transformed parameters {
+
+    // translate and scale "raw" parameter values to yield actual values
+
     real AB_true = AB_true_raw * sigma_prior_AB;
     
     vector[N] A_true[2, 2];
@@ -100,6 +125,9 @@ transformed parameters {
         B_true[i][1] = A_true[i][1] + v[1] .* fac;
         B_true[i][2] = A_true[i][2] + v[2] .* fac;
     }
+    
+    
+    // combine measurement, alignment and cluster errors to calculate individual errors for all positions
 
     vector[N] sigma_A;
     vector[N] sigma_B;
@@ -119,7 +147,11 @@ transformed parameters {
     }
 }
 
+
 model {
+
+    // priors; as the parameters are centralized, we use standard distributions here
+
     AB_true_raw ~ std_normal();
     
     for(i in 1:2) {
@@ -133,6 +165,11 @@ model {
     var_B_raw ~ inv_chi_square(nu_cluster);
     var_alignment_B_raw ~ inv_chi_square(nu_alignment_B);
     var_alignment_C_raw ~ inv_chi_square(nu_alignment_C);
+    
+    
+    // for both spindle poles, calculate probability of measuring A, B, and C if true positions are A_true, B_true and C_true,
+    // assuming Gaussian measurement errors with sigmas sigma_A, sigma_B and sigma_C
+    // then calculate combined probability for both options assuming a prior probability of lambda for option 1
 
     for(i in 1:N) {    
         real lp[2] = {0.0, 0.0};
